@@ -1,11 +1,17 @@
 """Process health and service metadata endpoints."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
+from sqlalchemy import select, text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.core.exceptions import AppError
+from app.db.session import get_session
+from app.models import Order
 
 router = APIRouter(tags=["health"])
 
@@ -30,7 +36,7 @@ def service_info(request: Request) -> ServiceInfo:
         name=settings.app_name,
         version=settings.app_version,
         environment=settings.environment,
-        phase=2,
+        phase=3,
         status="ready",
     )
 
@@ -42,10 +48,15 @@ def liveness() -> HealthResponse:
 
 
 @router.get("/health/ready", response_model=HealthResponse)
-def readiness() -> HealthResponse:
-    """Confirm current dependencies are ready.
-
-    Phase 2 has no external runtime dependencies. Database and Redis checks will
-    be added when those dependencies become part of request handling.
-    """
+def readiness(session: Annotated[Session, Depends(get_session)]) -> HealthResponse:
+    """Check connectivity and availability of the migrated business schema."""
+    try:
+        session.execute(text("SELECT 1"))
+        session.execute(select(Order.id).limit(1))
+    except SQLAlchemyError:
+        raise AppError(
+            status_code=503,
+            code="database_unavailable",
+            message="Database is unavailable or migrations have not been applied",
+        ) from None
     return HealthResponse(status="ready")

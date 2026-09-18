@@ -4,6 +4,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev
 COPY app ./app
+COPY alembic.ini ./
+COPY alembic ./alembic
 RUN useradd --create-home appuser
 USER appuser
 EXPOSE 8000

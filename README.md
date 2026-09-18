@@ -5,15 +5,18 @@
 
 ## Status / Features
 
-**PHASE 2: backend foundation.** Сейчас доступны React-страница, FastAPI application
-factory, типизированные settings, JSON-логи, request ID, health endpoints, единый
+**PHASE 3: database.** Добавлены SQLAlchemy-модели 15 таблиц, связи и ограничения,
+миграция Alembic, сессии PostgreSQL, readiness с проверкой БД и synthetic seed:
+120 клиентов, 24 поставщика, 60 курьеров, 600 заказов и 1620 событий доставки.
+Доступны React-страница, FastAPI, settings, JSON-логи, request ID, единый
 формат ошибок, Swagger и конфигурация пяти сервисов Docker Compose.
-AI, работа с БД, RAG, tracing и бизнес-страницы ещё не реализованы.
+AI, RAG, tracing и бизнес-страницы ещё не реализованы.
 Разработка идёт по одной фазе с разбором; требования — в [prompt.md](prompt.md).
 
 ## Architecture
 
-Сейчас: Browser → Vite / React → `/api` proxy → FastAPI.
+Сейчас: Browser → Vite / React → `/api` proxy → FastAPI → SQLAlchemy → PostgreSQL.
+Alembic управляет схемой; отдельная seed-команда создаёт demo-данные.
 
 Целевая архитектура: React → FastAPI → LangGraph → tools / SQL / RAG →
 PostgreSQL + pgvector. Redis + Celery обслуживают фоновые задачи;
@@ -24,10 +27,11 @@ Backend остаётся одним приложением с разделённ
 
 ## Tech Stack
 
-Сейчас: Python 3.12, uv, FastAPI/Pydantic, pytest, Ruff;
+Сейчас: Python 3.12, uv, FastAPI/Pydantic, SQLAlchemy 2, Alembic, psycopg 3,
+PostgreSQL, pytest, Ruff;
 React 19, TypeScript, Vite, Tailwind CSS, npm; Docker Compose.
 
-Следующие фазы: SQLAlchemy, Alembic, PostgreSQL/pgvector, Redis/Celery,
+Следующие фазы: embeddings/pgvector, Redis/Celery,
 OpenAI API, LangGraph, MLflow, Nginx, GitHub Actions.
 Python-зависимости фиксируются в `backend/uv.lock`, JS — в `frontend/package-lock.json`.
 
@@ -37,8 +41,12 @@ Python-зависимости фиксируются в `backend/uv.lock`, JS �
 backend/
   app/api/             # routers и HTTP endpoints
   app/core/            # settings, logging, middleware, errors
+  app/db/              # engine, session dependency, seed
+  app/models/          # ORM-модели бизнес-данных и AI persistence
   app/main.py          # application factory и ASGI entry point
-  tests/               # проверки API
+  alembic/             # история изменений схемы
+  alembic.ini
+  tests/               # проверки API, миграций и данных
   pyproject.toml       # зависимости и настройки Python
   uv.lock              # зафиксированные зависимости
   Dockerfile
@@ -55,8 +63,7 @@ docker-compose.yml
 .env.example
 ```
 
-В последующих фазах `backend/app` получит `models`, `schemas`, `services`, `ai`,
-`db`; миграции будут в `backend/alembic`.
+В последующих фазах `backend/app` получит `schemas`, `services`, `ai`.
 Frontend получит `pages`, `components`, `api`; CI — `.github/workflows`.
 Создаём эти модули по мере появления реализации.
 
@@ -73,6 +80,15 @@ docker compose config --quiet
 docker compose up --build
 ```
 
+После готовности backend в другом терминале:
+
+```bash
+docker compose exec backend .venv/bin/python -m app.db.seed
+```
+
+Миграции применяются перед стартом API. Seed запускается явно и повторно не
+добавляет те же данные. Он требует пустую БД или уже существующий полный demo-набор.
+
 Адреса: frontend http://localhost:5173, backend http://localhost:8000/api/v1/info,
 Swagger http://localhost:8000/docs, MLflow http://localhost:5000.
 Остановка: `docker compose down`. Named volumes сохраняют данные между запусками.
@@ -86,11 +102,14 @@ server, MLflow — SQLite. Образы версионированы тегам�
 ### Без Docker: frontend + backend
 
 Нужны Python 3.12, uv и Node.js 22.12+ (Node 20.19+ также подходит текущему каркасу).
-PostgreSQL, Redis и MLflow для стартовой страницы не требуются.
+Для работы с данными и успешного readiness нужен PostgreSQL.
+Redis и MLflow пока не участвуют в обработке запросов.
 
 ```bash
 cd backend
 uv sync --locked
+uv run alembic upgrade head
+uv run python -m app.db.seed
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -109,6 +128,8 @@ python3 -m venv .tools
 .tools/bin/python -m pip install uv==0.10.9
 cd backend
 ../.tools/bin/uv sync --locked
+../.tools/bin/uv run alembic upgrade head
+../.tools/bin/uv run python -m app.db.seed
 ../.tools/bin/uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -123,6 +144,8 @@ cd backend
 | `APP_ENVIRONMENT` | Окружение: `local`, `test`, `staging` или `production` |
 | `APP_LOG_LEVEL` | Минимальный уровень структурированных логов |
 | `APP_CORS_ORIGINS` | Разрешённые browser origins в формате JSON array |
+| `APP_DATABASE_URL` | SQLAlchemy URL PostgreSQL; локально localhost, в Compose postgres |
+| `TEST_DATABASE_URL` | Опциональная локальная тестовая PostgreSQL БД для интеграционных тестов |
 | `OPENAI_API_KEY` | Зарезервирован для PHASE 4, пока не читается приложением |
 
 `.env` не попадает в Git. Не помещайте секреты в `VITE_*`: такие переменные
@@ -141,11 +164,13 @@ curl http://localhost:8000/api/v1/health/ready
 Ожидаемый ответ:
 
 ```json
-{"name":"AI Operations Copilot","version":"0.2.0","environment":"local","phase":2,"status":"ready"}
+{"name":"AI Operations Copilot","version":"0.3.0","environment":"local","phase":3,"status":"ready"}
 ```
 
 `live` проверяет доступность процесса. `ready` сообщает, может ли приложение
-обслуживать запросы. Проверки PostgreSQL появятся после подключения БД в PHASE 3.
+обслуживать запросы: выполняет SQL и проверяет доступность таблицы orders.
+Без БД или миграции возвращает HTTP 503. `/info` показывает метаданные сервиса,
+его `status` не заменяет проверку `/health/ready`.
 Каждый HTTP-ответ получает `X-Request-ID`; тот же ID включается в JSON-логи и ошибки.
 
 Ошибки имеют стабильный envelope:
@@ -178,14 +203,22 @@ npm run build
 ```
 
 Backend-тесты проверяют API contracts, health semantics, request ID, публичные
-ошибки, отсутствие утечки внутренних деталей и JSON formatter.
+ошибки, отсутствие утечки внутренних деталей, JSON formatter, миграции, seed,
+связи, ограничения и rollback. Без `TEST_DATABASE_URL` PostgreSQL-проверки
+помечены skipped; SQLite и offline PostgreSQL DDL не заменяют интеграционный запуск.
 TypeScript и Vite проверяются production-сборкой; это не заменяет browser tests.
 
 ## Database
 
-Compose поднимает PostgreSQL с установленным pgvector. Схема, миграции,
-`CREATE EXTENSION vector`, подключение backend и seed появятся в PHASE 3/5.
-Само наличие образа pgvector не активирует extension в базе.
+Compose использует PostgreSQL 17 с доступным pgvector. Alembic создаёт 15 таблиц;
+SQLAlchemy работает через psycopg. `CREATE EXTENSION vector`, embedding-колонки
+и поиск появятся в фазе 5. Само наличие образа не активирует extension в базе.
+
+Seed фиксирован на `2026-09-18T12:00:00Z`: 180 доставок вовремя, 180 с задержкой,
+60 отмен, 120 активных просроченных и 60 активных непросроченных заказов.
+SLA поставщика и задержка доставки рассчитываются отдельно по временным меткам.
+Время — TIMESTAMPTZ, деньги — NUMERIC; лимиты SLA сохраняются на заказе.
+Разбор схемы, SQL-примеры и PostgreSQL-тесты — в [docs/phase-03.md](docs/phase-03.md).
 
 ## RAG Pipeline
 
@@ -226,6 +259,6 @@ build contexts. Vite proxy позволяет frontend обращаться к `
 
 ## Future Improvements
 
-Разбор текущего этапа: [docs/phase-02.md](docs/phase-02.md).
-Предыдущий этап: [docs/phase-01.md](docs/phase-01.md).
-Рекомендуемый commit: `feat: add backend foundation`.
+Разбор текущего этапа: [docs/phase-03.md](docs/phase-03.md).
+Предыдущие этапы: [phase-01](docs/phase-01.md), [phase-02](docs/phase-02.md).
+Рекомендуемый commit: `feat: add database models migrations and synthetic seed`.

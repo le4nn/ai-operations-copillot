@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "AI Operations Copilot"
-    app_version: str = "0.2.0"
+    app_version: str = "0.3.0"
+    database_url: SecretStr = SecretStr(
+        "postgresql+psycopg://copilot:copilot_local_only@localhost:5432/copilot"
+    )
     environment: Literal["local", "test", "staging", "production"] = "local"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])

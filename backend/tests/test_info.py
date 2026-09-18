@@ -1,13 +1,16 @@
 import json
 import logging
+from unittest.mock import MagicMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import OperationalError
 
 from app.core.config import Settings
 from app.core.exceptions import ResourceNotFoundError
 from app.core.handlers import register_exception_handlers
 from app.core.logging import JsonFormatter
+from app.db.session import get_session
 from app.main import create_app
 
 
@@ -23,9 +26,9 @@ def test_service_info() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "name": "AI Operations Copilot",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "environment": "test",
-        "phase": 2,
+        "phase": 3,
         "status": "ready",
     }
     assert response.headers["X-Request-ID"]
@@ -33,11 +36,24 @@ def test_service_info() -> None:
 
 def test_health_endpoints_have_distinct_semantics() -> None:
     with build_client() as client:
+        client.app.dependency_overrides[get_session] = lambda: MagicMock()
         live = client.get("/api/v1/health/live")
         ready = client.get("/api/v1/health/ready")
 
     assert live.json() == {"status": "ok"}
     assert ready.json() == {"status": "ready"}
+
+
+def test_database_failure_returns_503_without_affecting_liveness() -> None:
+    session = MagicMock()
+    session.execute.side_effect = OperationalError("secret connection", {}, Exception("password"))
+    with build_client() as client:
+        client.app.dependency_overrides[get_session] = lambda: session
+        response = client.get("/api/v1/health/ready")
+        assert client.get("/api/v1/health/live").status_code == 200
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "database_unavailable"
+    assert "password" not in response.text
 
 
 def test_safe_request_id_is_propagated() -> None:

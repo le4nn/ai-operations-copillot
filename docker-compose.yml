@@ -15,8 +15,13 @@ services:
       APP_ENVIRONMENT: local
       APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
       APP_CORS_ORIGINS: '["http://localhost:5173"]'
+      APP_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-copilot}:${POSTGRES_PASSWORD:-copilot_local_only}@postgres:5432/${POSTGRES_DB:-copilot}
+    command: ["sh", "-c", ".venv/bin/alembic upgrade head && exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/live', timeout=2)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/ready', timeout=2)"]
       interval: 10s
       timeout: 3s
       retries: 5
