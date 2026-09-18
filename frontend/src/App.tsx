@@ -11,8 +11,8 @@ export default function App() {
       .then(async (response) => {
         if (!response.ok) throw new Error('API unavailable');
         const info = await response.json();
-        if (info.status !== 'scaffold' || info.phase !== 1) throw new Error('Unexpected API');
-        if (active) setConnection('API подключён · Phase 1');
+        if (info.status !== 'ready' || info.phase !== 2) throw new Error('Unexpected API');
+        if (active) setConnection('API подключён · Phase 2');
       })
       .catch(() => {
         if (active) setConnection('API недоступен. Проверьте запуск backend и обновите страницу.');

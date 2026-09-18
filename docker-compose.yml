@@ -11,8 +11,12 @@ services:
   backend:
     build: ./backend
     ports: ["127.0.0.1:8000:8000"]
+    environment:
+      APP_ENVIRONMENT: local
+      APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
+      APP_CORS_ORIGINS: '["http://localhost:5173"]'
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/info', timeout=2)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/live', timeout=2)"]
       interval: 10s
       timeout: 3s
       retries: 5

@@ -5,8 +5,9 @@
 
 ## Status / Features
 
-**PHASE 1: initialization.** Сейчас доступны React-страница, проверка связи с FastAPI,
-Swagger, конфигурация пяти сервисов Docker Compose и изолированные зависимости.
+**PHASE 2: backend foundation.** Сейчас доступны React-страница, FastAPI application
+factory, типизированные settings, JSON-логи, request ID, health endpoints, единый
+формат ошибок, Swagger и конфигурация пяти сервисов Docker Compose.
 AI, работа с БД, RAG, tracing и бизнес-страницы ещё не реализованы.
 Разработка идёт по одной фазе с разбором; требования — в [prompt.md](prompt.md).
 
@@ -34,7 +35,9 @@ Python-зависимости фиксируются в `backend/uv.lock`, JS �
 
 ```text
 backend/
-  app/main.py          # точка входа и стартовый API
+  app/api/             # routers и HTTP endpoints
+  app/core/            # settings, logging, middleware, errors
+  app/main.py          # application factory и ASGI entry point
   tests/               # проверки API
   pyproject.toml       # зависимости и настройки Python
   uv.lock              # зафиксированные зависимости
@@ -52,8 +55,8 @@ docker-compose.yml
 .env.example
 ```
 
-В последующих фазах `backend/app` получит `api`, `core`, `models`, `schemas`,
-`services`, `ai`, `db`; миграции будут в `backend/alembic`.
+В последующих фазах `backend/app` получит `models`, `schemas`, `services`, `ai`,
+`db`; миграции будут в `backend/alembic`.
 Frontend получит `pages`, `components`, `api`; CI — `.github/workflows`.
 Создаём эти модули по мере появления реализации.
 
@@ -117,26 +120,48 @@ cd backend
 | `POSTGRES_USER` | Локальный пользователь PostgreSQL |
 | `POSTGRES_PASSWORD` | Локальный пароль; пример не подходит для production |
 | `BACKEND_URL` | Адрес API для Vite proxy; в Docker переопределён на `http://backend:8000` |
+| `APP_ENVIRONMENT` | Окружение: `local`, `test`, `staging` или `production` |
+| `APP_LOG_LEVEL` | Минимальный уровень структурированных логов |
+| `APP_CORS_ORIGINS` | Разрешённые browser origins в формате JSON array |
 | `OPENAI_API_KEY` | Зарезервирован для PHASE 4, пока не читается приложением |
 
 `.env` не попадает в Git. Не помещайте секреты в `VITE_*`: такие переменные
-доступны браузеру. Backend получит типизированную конфигурацию в PHASE 2.
+доступны браузеру. Backend валидирует настройки при старте через Pydantic Settings.
 
 ## API Documentation
 
-Swagger: http://localhost:8000/docs. Проверка стартового API:
+Swagger: http://localhost:8000/docs. Проверки backend foundation:
 
 ```bash
 curl http://localhost:8000/api/v1/info
+curl http://localhost:8000/api/v1/health/live
+curl http://localhost:8000/api/v1/health/ready
 ```
 
 Ожидаемый ответ:
 
 ```json
-{"name":"AI Operations Copilot","phase":1,"status":"scaffold"}
+{"name":"AI Operations Copilot","version":"0.2.0","environment":"local","phase":2,"status":"ready"}
 ```
 
-Это информация о каркасе, а не readiness-проверка базы или AI.
+`live` проверяет доступность процесса. `ready` сообщает, может ли приложение
+обслуживать запросы. Проверки PostgreSQL появятся после подключения БД в PHASE 3.
+Каждый HTTP-ответ получает `X-Request-ID`; тот же ID включается в JSON-логи и ошибки.
+
+Ошибки имеют стабильный envelope:
+
+```json
+{
+  "error": {
+    "code": "resource_not_found",
+    "message": "order with id '42' was not found",
+    "request_id": "..."
+  }
+}
+```
+
+Неожиданные исключения логируются с деталями на сервере, но клиент получает
+безопасное сообщение без stack trace и секретов.
 
 ## Tests
 
@@ -152,7 +177,8 @@ cd frontend
 npm run build
 ```
 
-API-тест проверяет контракт, который использует стартовая страница.
+Backend-тесты проверяют API contracts, health semantics, request ID, публичные
+ошибки, отсутствие утечки внутренних деталей и JSON formatter.
 TypeScript и Vite проверяются production-сборкой; это не заменяет browser tests.
 
 ## Database
@@ -178,7 +204,7 @@ Tool calling — модель запрашивает вызов функции, 
 ## Evaluation / Observability
 
 PHASE 10–11: минимум 50 тестовых вопросов, измеренные метрики, MLflow traces.
-В PHASE 1 MLflow только описан как сервис; приложение ещё не отправляет traces.
+Сейчас MLflow только описан как сервис; приложение ещё не отправляет traces.
 Никаких результатов оценки пока нет.
 
 ## Security
@@ -200,5 +226,6 @@ build contexts. Vite proxy позволяет frontend обращаться к `
 
 ## Future Improvements
 
-Порядок следующих этапов и учебный разбор: [docs/phase-01.md](docs/phase-01.md).
-Рекомендуемый первый commit: `feat: initialize project scaffold`.
+Разбор текущего этапа: [docs/phase-02.md](docs/phase-02.md).
+Предыдущий этап: [docs/phase-01.md](docs/phase-01.md).
+Рекомендуемый commit: `feat: add backend foundation`.
