@@ -11,8 +11,8 @@ export default function App() {
       .then(async (response) => {
         if (!response.ok) throw new Error('API unavailable');
         const info = await response.json();
-        if (info.status !== 'ready' || info.phase !== 3) throw new Error('Unexpected API');
-        if (active) setConnection('API подключён · Phase 3');
+        if (info.status !== 'ready' || info.phase !== 4) throw new Error('Unexpected API');
+        if (active) setConnection('API подключён · Phase 4');
       })
       .catch(() => {
         if (active) setConnection('API недоступен. Проверьте запуск backend и обновите страницу.');
@@ -32,8 +32,8 @@ export default function App() {
         <h2 className="text-xl font-medium">Каркас проекта готов</h2>
         <p role="status" className="mt-3 text-teal-300">{connection}</p>
         <p className="mt-4 text-slate-400">
-          AI Chat, бизнес-данные и поиск по документам появятся в следующих фазах.
-          Сейчас проверяем связку React → FastAPI.
+          Базовый AI Chat доступен через POST /api/v1/chat в Swagger.
+          Интерфейс чата, доступ AI к заказам и поиск по документам появятся в следующих фазах.
         </p>
         <a className="mt-6 inline-block text-teal-300 underline underline-offset-4" href="http://localhost:8000/docs">
           Открыть API документацию

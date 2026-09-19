@@ -39,6 +39,10 @@ def configure_logging(level: str) -> None:
     root_logger.addHandler(handler)
     root_logger.setLevel(level)
 
+    # SDK debug logging can include request bodies. Keep prompts and keys out of logs.
+    for name in ("openai", "httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)
+
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         logger = logging.getLogger(name)
         logger.handlers.clear()

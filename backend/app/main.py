@@ -7,12 +7,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import sessionmaker
 
+from app.ai.client import OpenAIChatClient, build_openai_client
 from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.handlers import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import request_context_middleware
 from app.db.session import build_engine
+from app.services.chat import ChatService
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -24,10 +26,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = build_engine(settings)
         app.state.session_factory = sessionmaker(engine)
+        openai_client = build_openai_client(settings)
+        app.state.chat_service = ChatService(OpenAIChatClient(openai_client, settings))
         try:
             yield
         finally:
             engine.dispose()
+            if openai_client is not None:
+                await openai_client.close()
 
     application = FastAPI(
         title=settings.app_name,

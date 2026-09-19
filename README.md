@@ -5,18 +5,23 @@
 
 ## Status / Features
 
-**PHASE 3: database.** Добавлены SQLAlchemy-модели 15 таблиц, связи и ограничения,
+**PHASE 4: basic AI.** Доступен `POST /api/v1/chat`: OpenAI Responses API,
+Structured Outputs, валидация, таймауты, обработка ошибок и метрики в логах.
+Пока это независимые запросы без истории, RAG и доступа AI к бизнес-данным.
+Реализованы SQLAlchemy-модели 15 таблиц, связи и ограничения,
 миграция Alembic, сессии PostgreSQL, readiness с проверкой БД и synthetic seed:
 120 клиентов, 24 поставщика, 60 курьеров, 600 заказов и 1620 событий доставки.
 Доступны React-страница, FastAPI, settings, JSON-логи, request ID, единый
 формат ошибок, Swagger и конфигурация пяти сервисов Docker Compose.
-AI, RAG, tracing и бизнес-страницы ещё не реализованы.
+RAG, tools, LangGraph, MLflow tracing и бизнес-страницы ещё не реализованы.
 Разработка идёт по одной фазе с разбором; требования — в [prompt.md](prompt.md).
 
 ## Architecture
 
 Сейчас: Browser → Vite / React → `/api` proxy → FastAPI → SQLAlchemy → PostgreSQL.
 Alembic управляет схемой; отдельная seed-команда создаёт demo-данные.
+Chat: FastAPI → ChatService → AsyncOpenAI → проверка схемы и политики ответа.
+Chat пока не обращается к PostgreSQL.
 
 Целевая архитектура: React → FastAPI → LangGraph → tools / SQL / RAG →
 PostgreSQL + pgvector. Redis + Celery обслуживают фоновые задачи;
@@ -28,11 +33,11 @@ Backend остаётся одним приложением с разделённ
 ## Tech Stack
 
 Сейчас: Python 3.12, uv, FastAPI/Pydantic, SQLAlchemy 2, Alembic, psycopg 3,
-PostgreSQL, pytest, Ruff;
+PostgreSQL, OpenAI Python SDK / Responses API, pytest, Ruff;
 React 19, TypeScript, Vite, Tailwind CSS, npm; Docker Compose.
 
 Следующие фазы: embeddings/pgvector, Redis/Celery,
-OpenAI API, LangGraph, MLflow, Nginx, GitHub Actions.
+LangGraph, MLflow, Nginx, GitHub Actions.
 Python-зависимости фиксируются в `backend/uv.lock`, JS — в `frontend/package-lock.json`.
 
 ## Project Structure
@@ -43,6 +48,9 @@ backend/
   app/core/            # settings, logging, middleware, errors
   app/db/              # engine, session dependency, seed
   app/models/          # ORM-модели бизнес-данных и AI persistence
+  app/ai/              # OpenAI adapter, инструкции, схема ответа модели
+  app/schemas/         # HTTP-контракты
+  app/services/        # правила ответа и координация AI-вызова
   app/main.py          # application factory и ASGI entry point
   alembic/             # история изменений схемы
   alembic.ini
@@ -63,7 +71,6 @@ docker-compose.yml
 .env.example
 ```
 
-В последующих фазах `backend/app` получит `schemas`, `services`, `ai`.
 Frontend получит `pages`, `components`, `api`; CI — `.github/workflows`.
 Создаём эти модули по мере появления реализации.
 
@@ -103,7 +110,7 @@ server, MLflow — SQLite. Образы версионированы тегам�
 
 Нужны Python 3.12, uv и Node.js 22.12+ (Node 20.19+ также подходит текущему каркасу).
 Для работы с данными и успешного readiness нужен PostgreSQL.
-Redis и MLflow пока не участвуют в обработке запросов.
+Для самого chat PostgreSQL не требуется. Redis и MLflow пока не участвуют в обработке запросов.
 
 ```bash
 cd backend
@@ -146,10 +153,16 @@ cd backend
 | `APP_CORS_ORIGINS` | Разрешённые browser origins в формате JSON array |
 | `APP_DATABASE_URL` | SQLAlchemy URL PostgreSQL; локально localhost, в Compose postgres |
 | `TEST_DATABASE_URL` | Опциональная локальная тестовая PostgreSQL БД для интеграционных тестов |
-| `OPENAI_API_KEY` | Зарезервирован для PHASE 4, пока не читается приложением |
+| `OPENAI_API_KEY` | Серверный OpenAI API-ключ; без него chat возвращает 503 |
+| `APP_OPENAI_MODEL` | Модель Responses API с Structured Outputs; по умолчанию `gpt-5-mini` |
+| `APP_OPENAI_TIMEOUT_SECONDS` | HTTP timeout SDK, по умолчанию 20 секунд |
+| `APP_OPENAI_MAX_RETRIES` | Число SDK retries, по умолчанию 1 |
+| `APP_OPENAI_MAX_OUTPUT_TOKENS` | Бюджет генерации, по умолчанию 4096 |
+| `APP_CHAT_DEADLINE_SECONDS` | Общий deadline с retries, по умолчанию 45 секунд |
 
 `.env` не попадает в Git. Не помещайте секреты в `VITE_*`: такие переменные
 доступны браузеру. Backend валидирует настройки при старте через Pydantic Settings.
+Ключ добавляется в существующий `.env` локально. После изменения перезапустите backend.
 
 ## API Documentation
 
@@ -164,7 +177,7 @@ curl http://localhost:8000/api/v1/health/ready
 Ожидаемый ответ:
 
 ```json
-{"name":"AI Operations Copilot","version":"0.3.0","environment":"local","phase":3,"status":"ready"}
+{"name":"AI Operations Copilot","version":"0.4.0","environment":"local","phase":4,"status":"ready"}
 ```
 
 `live` проверяет доступность процесса. `ready` сообщает, может ли приложение
@@ -188,6 +201,20 @@ curl http://localhost:8000/api/v1/health/ready
 Неожиданные исключения логируются с деталями на сервере, но клиент получает
 безопасное сообщение без stack trace и секретов.
 
+После настройки ключа доступен базовый AI Chat:
+
+```bash
+curl -sS http://localhost:8000/api/v1/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Что такое SLA в доставке?"}'
+```
+
+Ответ содержит `answer`, `status`, `sources`, `tools_used`, `trace_id`.
+Источники и tools пока всегда пусты. Если модель определила, что нужны данные компании,
+сервис возвращает `insufficient_data` с фиксированным сообщением об отсутствии информации.
+Это не гарантия правильной классификации LLM: Structured Outputs проверяет форму,
+а не истинность. Разбор и примеры — в [docs/phase-04.md](docs/phase-04.md).
+
 ## Tests
 
 ```bash
@@ -206,6 +233,8 @@ Backend-тесты проверяют API contracts, health semantics, request I
 ошибки, отсутствие утечки внутренних деталей, JSON formatter, миграции, seed,
 связи, ограничения и rollback. Без `TEST_DATABASE_URL` PostgreSQL-проверки
 помечены skipped; SQLite и offline PostgreSQL DDL не заменяют интеграционный запуск.
+Chat-тесты проверяют весь путь через SDK с подменённым HTTP-транспортом,
+без сети, реального ключа и расходов. Они не измеряют качество модели.
 TypeScript и Vite проверяются production-сборкой; это не заменяет browser tests.
 
 ## Database
@@ -238,6 +267,8 @@ Tool calling — модель запрашивает вызов функции, 
 
 PHASE 10–11: минимум 50 тестовых вопросов, измеренные метрики, MLflow traces.
 Сейчас MLflow только описан как сервис; приложение ещё не отправляет traces.
+Chat пишет реальные usage и latency полученного ответа в JSON-логи, без текста
+переписки и ключа. `trace_id` — ID корреляции с логами, не MLflow trace.
 Никаких результатов оценки пока нет.
 
 ## Security
@@ -255,10 +286,12 @@ build contexts. Vite proxy позволяет frontend обращаться к `
 
 Будущие демонстрационные запросы: «Почему задерживаются заказы сегодня?»,
 «Какой SLA у поставщика?», «Сколько заказов доставлено в Астане за август?».
-На текущем этапе chat endpoint отсутствует.
+Базовый chat уже доступен; для этих вопросов пока ожидается сообщение об отсутствии данных.
+Проверить общее объяснение можно вопросом «Что такое SLA в доставке?».
 
 ## Future Improvements
 
-Разбор текущего этапа: [docs/phase-03.md](docs/phase-03.md).
-Предыдущие этапы: [phase-01](docs/phase-01.md), [phase-02](docs/phase-02.md).
-Рекомендуемый commit: `feat: add database models migrations and synthetic seed`.
+Разбор текущего этапа: [docs/phase-04.md](docs/phase-04.md).
+Предыдущие этапы: [phase-01](docs/phase-01.md), [phase-02](docs/phase-02.md),
+[phase-03](docs/phase-03.md).
+Рекомендуемый commit: `feat: add OpenAI client and structured chat endpoint`.
