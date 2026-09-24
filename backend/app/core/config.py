@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "AI Operations Copilot"
-    app_version: str = "0.5.0"
+    app_version: str = "0.6.0"
     openai_api_key: SecretStr | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-5-mini", min_length=1, max_length=100)
     openai_timeout_seconds: float = Field(default=20, gt=0, le=120)

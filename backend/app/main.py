@@ -18,6 +18,8 @@ from app.rag.embeddings import Embeddings
 from app.rag.repository import DocumentRepository
 from app.rag.service import DocumentService
 from app.services.chat import ChatService
+from app.tools.registry import build_tool_registry
+from app.tools.repository import OperationsRepository
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -34,6 +36,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             DocumentRepository(app.state.session_factory),
             Embeddings(openai_client),
             settings.rag_min_similarity,
+        )
+        app.state.tool_registry = build_tool_registry(
+            OperationsRepository(app.state.session_factory), app.state.document_service
         )
         app.state.chat_service = ChatService(
             OpenAIChatClient(openai_client, settings), app.state.document_service

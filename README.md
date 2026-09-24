@@ -5,16 +5,20 @@
 
 ## Status / Features
 
-**PHASE 5: RAG.** Добавлены загрузка PDF/TXT/DOCX, chunking, OpenAI embeddings,
-pgvector retrieval и ответы с проверяемыми источниками. В `POST /api/v1/chat`
-передайте `use_documents: true` для поиска по документам; без флага доступен базовый chat.
-[Запуск, примеры и разбор фазы 5](docs/phase-05.md).
+**PHASE 6: Tools.** Добавлен реестр восьми read-only инструментов: заказы,
+клиенты, поставщики, доставка, поиск и статистика. Есть JSON schemas, строгая
+валидация, server-side allowlist, источники и безопасные ошибки выполнения.
+Локальная проверка: `GET /api/v1/tools`, `POST /api/v1/tools/{name}/execute`.
+[Запуск, примеры и разбор фазы 6](docs/phase-06.md).
+
+RAG фазы 5 доступен через `POST /api/v1/chat` с `use_documents: true`.
+Без флага работает базовый chat. Выбор бизнес-tools моделью подключим в фазе 7.
 Реализованы SQLAlchemy-модели 15 таблиц, связи и ограничения,
 миграция Alembic, сессии PostgreSQL, readiness с проверкой БД и synthetic seed:
 120 клиентов, 24 поставщика, 60 курьеров, 600 заказов и 1620 событий доставки.
 Доступны React-страница, FastAPI, settings, JSON-логи, request ID, единый
 формат ошибок, Swagger и конфигурация пяти сервисов Docker Compose.
-Agent tools, LangGraph, MLflow tracing и бизнес-страницы ещё не реализованы.
+LangGraph, автоматический выбор tools, MLflow tracing и бизнес-страницы ещё не реализованы.
 Разработка идёт по одной фазе с разбором; требования — в [prompt.md](prompt.md).
 
 ## Architecture
@@ -52,6 +56,7 @@ backend/
   app/ai/              # OpenAI adapter, инструкции, схема ответа модели
   app/schemas/         # HTTP-контракты
   app/services/        # правила ответа и координация AI-вызова
+  app/tools/           # registry, schemas, read-only business queries
   app/main.py          # application factory и ASGI entry point
   alembic/             # история изменений схемы
   alembic.ini
@@ -179,7 +184,7 @@ curl http://localhost:8000/api/v1/health/ready
 Ожидаемый ответ:
 
 ```json
-{"name":"AI Operations Copilot","version":"0.5.0","environment":"local","phase":5,"status":"ready"}
+{"name":"AI Operations Copilot","version":"0.6.0","environment":"local","phase":6,"status":"ready"}
 ```
 
 `live` проверяет доступность процесса. `ready` сообщает, может ли приложение
@@ -259,8 +264,11 @@ RAG — получение подходящих фрагментов докум�
 
 ## Agent Architecture / Tools / SQL Agent
 
-PHASE 6–8: один LangGraph agent, инструменты с Pydantic schemas,
-SQL validation и отдельная роль БД с ограниченными правами.
+PHASE 6: tools с Pydantic schemas и контролируемым read-only dispatch реализованы.
+Инструменты читают данные явными SQLAlchemy SELECT; произвольный SQL не принимается.
+Локальные endpoints tools недоступны в staging/production. Это не пользовательская RBAC.
+PHASE 7–8: один LangGraph agent, автоматический выбор tools, SQL validation
+и отдельная роль БД с ограниченными правами.
 Tool calling — модель запрашивает вызов функции, а backend проверяет аргументы и выполняет её.
 Например, `get_order(order_id=42)` получает реальную запись вместо догадки модели.
 Создание задач потребует подтверждения пользователя в PHASE 9.
@@ -294,7 +302,7 @@ build contexts. Vite proxy позволяет frontend обращаться к `
 
 ## Future Improvements
 
-Разбор текущего этапа: [docs/phase-05.md](docs/phase-05.md).
+Разбор текущего этапа: [docs/phase-06.md](docs/phase-06.md).
 Предыдущие этапы: [phase-01](docs/phase-01.md), [phase-02](docs/phase-02.md),
-[phase-03](docs/phase-03.md), [phase-04](docs/phase-04.md).
-Рекомендуемый commit: `feat: add document ingestion and pgvector RAG with grounded sources`.
+[phase-03](docs/phase-03.md), [phase-04](docs/phase-04.md), [phase-05](docs/phase-05.md).
+Рекомендуемый commit: `feat: add validated read-only tools for operations and document search`.
