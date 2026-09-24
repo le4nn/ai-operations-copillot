@@ -28,7 +28,7 @@ def database(request):
         admin = create_engine(url, isolation_level="AUTOCOMMIT")
         with admin.connect() as connection:
             connection.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
-        engine = create_engine(url, connect_args={"options": f"-csearch_path={schema}"})
+        engine = create_engine(url, connect_args={"options": f"-csearch_path={schema},public"})
     else:
         engine = create_engine(
             "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False}

@@ -26,9 +26,9 @@ def test_service_info() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "name": "AI Operations Copilot",
-        "version": "0.4.0",
+        "version": "0.5.0",
         "environment": "test",
-        "phase": 4,
+        "phase": 5,
         "status": "ready",
     }
     assert response.headers["X-Request-ID"]

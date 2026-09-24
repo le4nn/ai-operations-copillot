@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -22,9 +24,16 @@ class ModelAnswer(BaseModel):
 
 @dataclass(frozen=True)
 class ModelResult:
-    content: ModelAnswer | None
+    content: ModelAnswer | RAGAnswer | None
     refused: bool
     model: str
     provider_response_id: str
     input_tokens: int | None
     output_tokens: int | None
+
+
+class RAGAnswer(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    answer: str
+    supported: bool
+    chunk_ids: list[int]

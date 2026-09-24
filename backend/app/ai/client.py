@@ -14,8 +14,8 @@ from openai import (
 )
 from pydantic import ValidationError
 
-from app.ai.contracts import ModelAnswer, ModelResult
-from app.ai.prompts import SYSTEM_INSTRUCTIONS
+from app.ai.contracts import ModelAnswer, ModelResult, RAGAnswer
+from app.ai.prompts import RAG_INSTRUCTIONS, SYSTEM_INSTRUCTIONS
 from app.core.config import Settings
 from app.core.exceptions import AppError
 
@@ -40,7 +40,7 @@ class OpenAIChatClient:
         self.client = client
         self.settings = settings
 
-    async def generate(self, message: str) -> ModelResult:
+    async def generate(self, message: str, *, rag: bool = False) -> ModelResult:
         if self.client is None:
             raise ai_error("ai_not_configured", "OpenAI API key is not configured", 503)
         try:
@@ -48,14 +48,14 @@ class OpenAIChatClient:
             async with asyncio.timeout(self.settings.chat_deadline_seconds):
                 response = await self.client.responses.create(
                     model=self.settings.openai_model,
-                    instructions=SYSTEM_INSTRUCTIONS,
+                    instructions=RAG_INSTRUCTIONS if rag else SYSTEM_INSTRUCTIONS,
                     input=[{"role": "user", "content": message}],
                     text={
                         "format": {
                             "type": "json_schema",
                             "name": "copilot_answer",
                             "strict": True,
-                            "schema": ModelAnswer.model_json_schema(),
+                            "schema": (RAGAnswer if rag else ModelAnswer).model_json_schema(),
                         }
                     },
                     max_output_tokens=self.settings.openai_max_output_tokens,
@@ -100,7 +100,9 @@ class OpenAIChatClient:
         content = None
         if not refused:
             try:
-                content = ModelAnswer.model_validate_json(response.output_text)
+                content = (RAGAnswer if rag else ModelAnswer).model_validate_json(
+                    response.output_text
+                )
             except ValidationError:
                 raise ai_error("ai_invalid_response", "AI response failed validation") from None
         return ModelResult(

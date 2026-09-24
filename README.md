@@ -5,15 +5,16 @@
 
 ## Status / Features
 
-**PHASE 4: basic AI.** Доступен `POST /api/v1/chat`: OpenAI Responses API,
-Structured Outputs, валидация, таймауты, обработка ошибок и метрики в логах.
-Пока это независимые запросы без истории, RAG и доступа AI к бизнес-данным.
+**PHASE 5: RAG.** Добавлены загрузка PDF/TXT/DOCX, chunking, OpenAI embeddings,
+pgvector retrieval и ответы с проверяемыми источниками. В `POST /api/v1/chat`
+передайте `use_documents: true` для поиска по документам; без флага доступен базовый chat.
+[Запуск, примеры и разбор фазы 5](docs/phase-05.md).
 Реализованы SQLAlchemy-модели 15 таблиц, связи и ограничения,
 миграция Alembic, сессии PostgreSQL, readiness с проверкой БД и synthetic seed:
 120 клиентов, 24 поставщика, 60 курьеров, 600 заказов и 1620 событий доставки.
 Доступны React-страница, FastAPI, settings, JSON-логи, request ID, единый
 формат ошибок, Swagger и конфигурация пяти сервисов Docker Compose.
-RAG, tools, LangGraph, MLflow tracing и бизнес-страницы ещё не реализованы.
+Agent tools, LangGraph, MLflow tracing и бизнес-страницы ещё не реализованы.
 Разработка идёт по одной фазе с разбором; требования — в [prompt.md](prompt.md).
 
 ## Architecture
@@ -21,7 +22,7 @@ RAG, tools, LangGraph, MLflow tracing и бизнес-страницы ещё н
 Сейчас: Browser → Vite / React → `/api` proxy → FastAPI → SQLAlchemy → PostgreSQL.
 Alembic управляет схемой; отдельная seed-команда создаёт demo-данные.
 Chat: FastAPI → ChatService → AsyncOpenAI → проверка схемы и политики ответа.
-Chat пока не обращается к PostgreSQL.
+В режиме документов: Chat → query embedding → pgvector → context → LLM → sources.
 
 Целевая архитектура: React → FastAPI → LangGraph → tools / SQL / RAG →
 PostgreSQL + pgvector. Redis + Celery обслуживают фоновые задачи;
@@ -36,7 +37,7 @@ Backend остаётся одним приложением с разделённ
 PostgreSQL, OpenAI Python SDK / Responses API, pytest, Ruff;
 React 19, TypeScript, Vite, Tailwind CSS, npm; Docker Compose.
 
-Следующие фазы: embeddings/pgvector, Redis/Celery,
+Для RAG: pgvector, pypdf, python-docx. Следующие фазы: Redis/Celery,
 LangGraph, MLflow, Nginx, GitHub Actions.
 Python-зависимости фиксируются в `backend/uv.lock`, JS — в `frontend/package-lock.json`.
 
@@ -63,7 +64,7 @@ frontend/
   vite.config.ts       # плагины и proxy к backend
   package-lock.json
   Dockerfile
-documents/             # будущие synthetic документы
+documents/             # synthetic политики TXT/PDF и генератор PDF
 evals/                 # будущий evaluation dataset и runner
 docs/                  # архитектура, этапы и объяснения
 infra/                 # будущая конфигурация Nginx
@@ -110,7 +111,7 @@ server, MLflow — SQLite. Образы версионированы тегам�
 
 Нужны Python 3.12, uv и Node.js 22.12+ (Node 20.19+ также подходит текущему каркасу).
 Для работы с данными и успешного readiness нужен PostgreSQL.
-Для самого chat PostgreSQL не требуется. Redis и MLflow пока не участвуют в обработке запросов.
+Для базового chat PostgreSQL не требуется; режим документов требует БД и миграций. Redis и MLflow пока не участвуют в обработке запросов.
 
 ```bash
 cd backend
@@ -158,6 +159,7 @@ cd backend
 | `APP_OPENAI_TIMEOUT_SECONDS` | HTTP timeout SDK, по умолчанию 20 секунд |
 | `APP_OPENAI_MAX_RETRIES` | Число SDK retries, по умолчанию 1 |
 | `APP_OPENAI_MAX_OUTPUT_TOKENS` | Бюджет генерации, по умолчанию 4096 |
+| `APP_RAG_MIN_SIMILARITY` | Минимальный cosine similarity, baseline 0.3, требует калибровки |
 | `APP_CHAT_DEADLINE_SECONDS` | Общий deadline с retries, по умолчанию 45 секунд |
 
 `.env` не попадает в Git. Не помещайте секреты в `VITE_*`: такие переменные
@@ -177,7 +179,7 @@ curl http://localhost:8000/api/v1/health/ready
 Ожидаемый ответ:
 
 ```json
-{"name":"AI Operations Copilot","version":"0.4.0","environment":"local","phase":4,"status":"ready"}
+{"name":"AI Operations Copilot","version":"0.5.0","environment":"local","phase":5,"status":"ready"}
 ```
 
 `live` проверяет доступность процесса. `ready` сообщает, может ли приложение
@@ -210,7 +212,7 @@ curl -sS http://localhost:8000/api/v1/chat \
 ```
 
 Ответ содержит `answer`, `status`, `sources`, `tools_used`, `trace_id`.
-Источники и tools пока всегда пусты. Если модель определила, что нужны данные компании,
+В базовом режиме sources и tools пусты; в режиме документов sources содержит фрагменты. Если модель определила, что нужны данные компании,
 сервис возвращает `insufficient_data` с фиксированным сообщением об отсутствии информации.
 Это не гарантия правильной классификации LLM: Structured Outputs проверяет форму,
 а не истинность. Разбор и примеры — в [docs/phase-04.md](docs/phase-04.md).
@@ -240,8 +242,8 @@ TypeScript и Vite проверяются production-сборкой; это не
 ## Database
 
 Compose использует PostgreSQL 17 с доступным pgvector. Alembic создаёт 15 таблиц;
-SQLAlchemy работает через psycopg. `CREATE EXTENSION vector`, embedding-колонки
-и поиск появятся в фазе 5. Само наличие образа не активирует extension в базе.
+SQLAlchemy работает через psycopg. Миграция `0002` активирует `vector` и добавляет embeddings размерности 1536.
+Для миграции нужны права на создание extension. Поиск выполняется в PostgreSQL.
 
 Seed фиксирован на `2026-09-18T12:00:00Z`: 180 доставок вовремя, 180 с задержкой,
 60 отмен, 120 активных просроченных и 60 активных непросроченных заказов.
@@ -251,7 +253,7 @@ SLA поставщика и задержка доставки рассчитыв
 
 ## RAG Pipeline
 
-План PHASE 5: parse → clean → chunks → embeddings → pgvector → retrieval → answer + sources.
+Реализовано: parse → clean → chunks → embeddings → pgvector → retrieval → answer + sources.
 RAG — получение подходящих фрагментов документов перед генерацией ответа.
 Например, вопрос о сроке возврата должен найти пункт refund policy и сослаться на него.
 
@@ -275,7 +277,8 @@ Chat пишет реальные usage и latency полученного отв�
 
 Локальные порты Compose привязаны к loopback. Секреты исключены из Git и Docker
 build contexts. Vite proxy позволяет frontend обращаться к `/api` через один origin.
-Аутентификация, роли, rate limiting, file validation и защита SQL будут добавляться
+Файлы проверяются по формату, размеру и извлекаемому тексту; имена не используются как пути.
+Аутентификация, роли, rate limiting и защита SQL будут добавляться
 в соответствующих фазах. Текущий каркас не предназначен для публичного deployment.
 
 ## Screenshots
@@ -291,7 +294,7 @@ build contexts. Vite proxy позволяет frontend обращаться к `
 
 ## Future Improvements
 
-Разбор текущего этапа: [docs/phase-04.md](docs/phase-04.md).
+Разбор текущего этапа: [docs/phase-05.md](docs/phase-05.md).
 Предыдущие этапы: [phase-01](docs/phase-01.md), [phase-02](docs/phase-02.md),
-[phase-03](docs/phase-03.md).
-Рекомендуемый commit: `feat: add OpenAI client and structured chat endpoint`.
+[phase-03](docs/phase-03.md), [phase-04](docs/phase-04.md).
+Рекомендуемый commit: `feat: add document ingestion and pgvector RAG with grounded sources`.

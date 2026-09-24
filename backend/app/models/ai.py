@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import JSON, CheckConstraint, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,6 +27,10 @@ class DocumentChunk(Record, Base):
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"), index=True)
     chunk_index: Mapped[int]
     content: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(1536).with_variant(JSON(), "sqlite")
+    )
+    embedding_model: Mapped[str | None] = mapped_column(String(100))
     page_number: Mapped[int | None]
     document: Mapped[Document] = relationship(back_populates="chunks")
 

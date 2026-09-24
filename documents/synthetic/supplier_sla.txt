@@ -1,0 +1,4 @@
+Supplier SLA - synthetic demonstration, version 1, 2026-09-24.
+A supplier must confirm an available order within 15 minutes of receipt. The default preparation and courier handoff deadline is 120 minutes after confirmation. Contract-specific handoff limits stored on an order override this default; seeded orders can have different limits.
+A handoff after the applicable deadline is a supplier SLA violation. For an open order, compare the current time with its deadline. Cancellation is reviewed separately. Record timestamps and the reason before assigning responsibility.
+An operations manager reviews repeated violations and contacts the supplier. Contract penalties require a separate signed agreement; this policy does not define an automatic monetary penalty. Policy text alone cannot establish how many violations occurred today.

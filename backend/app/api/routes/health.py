@@ -36,7 +36,7 @@ def service_info(request: Request) -> ServiceInfo:
         name=settings.app_name,
         version=settings.app_version,
         environment=settings.environment,
-        phase=4,
+        phase=5,
         status="ready",
     )
 

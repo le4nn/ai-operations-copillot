@@ -1,0 +1,4 @@
+Customer Support Policy - synthetic demonstration, version 1, 2026-09-24.
+Support verifies the order ID before discussing an individual delivery. Use actual order and delivery events for status updates; policy documents do not contain live order status.
+For a delayed order, acknowledge the issue, check the recorded cause and explain the next confirmed step. Escalate unresolved delays to the operations manager within 30 minutes after the support case is opened.
+Refund requests follow Refund Policy. Do not promise approval, compensation or a delivery time without evidence. Internal tasks require explicit operator confirmation. Record the customer request and the agreed follow-up without unnecessary personal information.

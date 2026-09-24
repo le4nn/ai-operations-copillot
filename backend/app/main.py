@@ -14,6 +14,9 @@ from app.core.handlers import register_exception_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import request_context_middleware
 from app.db.session import build_engine
+from app.rag.embeddings import Embeddings
+from app.rag.repository import DocumentRepository
+from app.rag.service import DocumentService
 from app.services.chat import ChatService
 
 
@@ -27,7 +30,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine = build_engine(settings)
         app.state.session_factory = sessionmaker(engine)
         openai_client = build_openai_client(settings)
-        app.state.chat_service = ChatService(OpenAIChatClient(openai_client, settings))
+        app.state.document_service = DocumentService(
+            DocumentRepository(app.state.session_factory),
+            Embeddings(openai_client),
+            settings.rag_min_similarity,
+        )
+        app.state.chat_service = ChatService(
+            OpenAIChatClient(openai_client, settings), app.state.document_service
+        )
         try:
             yield
         finally:

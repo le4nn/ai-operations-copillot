@@ -17,5 +17,7 @@ async def chat(
     body: ChatRequest,
     service: Annotated[ChatService, Depends(get_chat_service)],
 ) -> ChatResponse:
-    """Single-turn basic AI. Business tools and document retrieval are not connected yet."""
+    """Single-turn chat with an explicit document-grounded mode."""
+    if body.use_documents:
+        return await service.reply_with_documents(body.message)
     return await service.reply(body.message)

@@ -1,0 +1,4 @@
+Delivery Policy - synthetic demonstration, version 1, 2026-09-24.
+The promised delivery timestamp on each order is the delivery deadline. A completed delivery is delayed when delivered_at is later than promised_at. An active undelivered order is overdue when the current time is later than promised_at. Cancelled orders are reported separately.
+For a delay, inspect supplier handoff, courier pickup and delivery events. Possible reasons include supplier preparation, courier availability and incorrect address; do not assign a cause without recorded evidence.
+After an unsuccessful delivery attempt, record an event and contact the customer. Agree a new delivery window before another attempt. Escalate to support if contact fails. Supplier handoff SLA and final delivery deadline are separate metrics.

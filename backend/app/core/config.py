@@ -18,12 +18,13 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "AI Operations Copilot"
-    app_version: str = "0.4.0"
+    app_version: str = "0.5.0"
     openai_api_key: SecretStr | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-5-mini", min_length=1, max_length=100)
     openai_timeout_seconds: float = Field(default=20, gt=0, le=120)
     openai_max_retries: int = Field(default=1, ge=0, le=2)
     openai_max_output_tokens: int = Field(default=4096, ge=256, le=16384)
+    rag_min_similarity: float = Field(default=0.3, ge=0, le=1)
     chat_deadline_seconds: float = Field(default=45, gt=0, le=180)
     database_url: SecretStr = SecretStr(
         "postgresql+psycopg://copilot:copilot_local_only@localhost:5432/copilot"

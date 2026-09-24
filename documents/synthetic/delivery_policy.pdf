@@ -1,0 +1,74 @@
+%PDF-1.3
+%‚„œ”
+1 0 obj
+<<
+/Producer (pypdf)
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Count 1
+/Kids [ 4 0 R ]
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+4 0 obj
+<<
+/Type /Page
+/Resources <<
+/Font <<
+/F1 <<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+>>
+>>
+/MediaBox [ 0.0 0.0 595 842 ]
+/Parent 2 0 R
+/Contents <<
+/Length 958
+>>
+stream
+BT /F1 10 Tf 45 790 Td 14 TL
+(Delivery Policy - synthetic demonstration, version 1, 2026-09-24.) Tj T*
+() Tj T*
+(The promised delivery timestamp on each order is the delivery deadline. A completed) Tj T*
+(delivery is delayed when delivered_at is later than promised_at. An active) Tj T*
+(undelivered order is overdue when the current time is later than promised_at.) Tj T*
+(Cancelled orders are reported separately.) Tj T*
+() Tj T*
+(For a delay, inspect supplier handoff, courier pickup and delivery events. Possible) Tj T*
+(reasons include supplier preparation, courier availability and incorrect address; do) Tj T*
+(not assign a cause without recorded evidence.) Tj T*
+() Tj T*
+(After an unsuccessful delivery attempt, record an event and contact the customer.) Tj T*
+(Agree a new delivery window before another attempt. Escalate to support if contact) Tj T*
+(fails. Supplier handoff SLA and final delivery deadline are separate metrics.) Tj T*
+() Tj T*
+ET
+endstream
+>>
+endobj
+xref
+0 5
+0000000000 65535 f 
+0000000015 00000 n 
+0000000054 00000 n 
+0000000113 00000 n 
+0000000162 00000 n 
+trailer
+<<
+/Size 5
+/Root 3 0 R
+/Info 1 0 R
+>>
+startxref
+1331
+%%EOF

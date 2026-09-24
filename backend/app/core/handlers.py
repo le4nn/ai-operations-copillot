@@ -5,6 +5,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.context import request_id_context
 from app.core.exceptions import AppError
@@ -42,6 +43,15 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=422,
             code="validation_error",
             message="Request validation failed",
+        )
+
+    @app.exception_handler(SQLAlchemyError)
+    async def handle_database_error(_request: Request, _exc: SQLAlchemyError) -> JSONResponse:
+        logger.error("database_request_failed")
+        return _error_response(
+            status_code=503,
+            code="database_unavailable",
+            message="Database operation failed; check migrations and availability",
         )
 
     @app.exception_handler(Exception)

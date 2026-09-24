@@ -1,0 +1,75 @@
+%PDF-1.3
+%‚„œ”
+1 0 obj
+<<
+/Producer (pypdf)
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Count 1
+/Kids [ 4 0 R ]
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+4 0 obj
+<<
+/Type /Page
+/Resources <<
+/Font <<
+/F1 <<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+>>
+>>
+/MediaBox [ 0.0 0.0 595 842 ]
+/Parent 2 0 R
+/Contents <<
+/Length 1002
+>>
+stream
+BT /F1 10 Tf 45 790 Td 14 TL
+(Supplier SLA - synthetic demonstration, version 1, 2026-09-24.) Tj T*
+() Tj T*
+(A supplier must confirm an available order within 15 minutes of receipt. The default) Tj T*
+(preparation and courier handoff deadline is 120 minutes after confirmation. Contract-) Tj T*
+(specific handoff limits stored on an order override this default; seeded orders can) Tj T*
+(have different limits.) Tj T*
+() Tj T*
+(A handoff after the applicable deadline is a supplier SLA violation. For an open) Tj T*
+(order, compare the current time with its deadline. Cancellation is reviewed) Tj T*
+(separately. Record timestamps and the reason before assigning responsibility.) Tj T*
+() Tj T*
+(An operations manager reviews repeated violations and contacts the supplier. Contract) Tj T*
+(penalties require a separate signed agreement; this policy does not define an) Tj T*
+(automatic monetary penalty. Policy text alone cannot establish how many violations) Tj T*
+(occurred today.) Tj T*
+() Tj T*
+ET
+endstream
+>>
+endobj
+xref
+0 5
+0000000000 65535 f 
+0000000015 00000 n 
+0000000054 00000 n 
+0000000113 00000 n 
+0000000162 00000 n 
+trailer
+<<
+/Size 5
+/Root 3 0 R
+/Info 1 0 R
+>>
+startxref
+1376
+%%EOF

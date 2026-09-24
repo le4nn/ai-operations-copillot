@@ -1,0 +1,4 @@
+Courier Rules - synthetic demonstration, version 1, 2026-09-24.
+The courier checks package count and visible damage at pickup and records the actual pickup time. Do not record delivery before handing the goods to the customer or an authorized recipient.
+When an address is unclear, contact the customer through support and record an address_issue event. Do not invent an address or expose customer contact details in public notes.
+If delivery cannot be completed, record a failed_attempt with time and reason, then contact support. Never approve refunds or supplier penalties: these require manager authorization. Safety incidents must be escalated immediately.

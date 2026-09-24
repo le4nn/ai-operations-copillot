@@ -20,6 +20,7 @@ services:
       APP_OPENAI_TIMEOUT_SECONDS: ${APP_OPENAI_TIMEOUT_SECONDS:-20}
       APP_OPENAI_MAX_RETRIES: ${APP_OPENAI_MAX_RETRIES:-1}
       APP_OPENAI_MAX_OUTPUT_TOKENS: ${APP_OPENAI_MAX_OUTPUT_TOKENS:-4096}
+      APP_RAG_MIN_SIMILARITY: ${APP_RAG_MIN_SIMILARITY:-0.3}
       APP_CHAT_DEADLINE_SECONDS: ${APP_CHAT_DEADLINE_SECONDS:-45}
       APP_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-copilot}:${POSTGRES_PASSWORD:-copilot_local_only}@postgres:5432/${POSTGRES_DB:-copilot}
     command: ["sh", "-c", ".venv/bin/alembic upgrade head && exec .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000"]
